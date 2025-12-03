@@ -1,36 +1,57 @@
 import crypto from "crypto";
+import { connectDB } from "./db.js";
 
-const captchas = new Map();
-const MONITOR = [];
 const EXPIRE_TIME = 2*60*1000; // 2 menit
+const RATE_LIMIT_WINDOW = 60*1000;
+const RATE_LIMIT_MAX = 5;
+
+// rate limit memory (masih bisa pakai Map)
+const rateLimitStore = new Map();
+
+export async function checkRateLimit(ip){
+    const now = Date.now();
+    const dataRL = rateLimitStore.get(ip) || { count:0, start:now };
+    
+    if(now - dataRL.start < RATE_LIMIT_WINDOW){
+        if(dataRL.count >= RATE_LIMIT_MAX) throw new Error("Too many requests, slow down");
+        dataRL.count++;
+    } else {
+        dataRL.count = 1;
+        dataRL.start = now;
+    }
+    rateLimitStore.set(ip, dataRL);
+}
 
 // create captcha
-export function createCaptcha(ip, captcha_id, token, target_position, trace_salt, nonce){
-    if(captchas.has(captcha_id)) throw new Error("Captcha already exists");
-    captchas.set(captcha_id,{
-        ip, token, target_position, trace_salt, nonce,
+export async function createCaptcha(ip,captcha_id,token,target_position,trace_salt,nonce){
+    const db = await connectDB();
+    await db.collection("captchas").insertOne({
+        captcha_id, token, target_position, trace_salt, nonce, ip,
         created: Date.now(),
         expires: Date.now() + EXPIRE_TIME
     });
-    MONITOR.push({ type:'create', captcha_id, ip, timestamp:Date.now() });
 }
 
 // get captcha
-export function getCaptcha(captcha_id){
-    const data = captchas.get(captcha_id);
+export async function getCaptcha(captcha_id){
+    const db = await connectDB();
+    const data = await db.collection("captchas").findOne({ captcha_id });
     if(!data) return null;
     if(Date.now() > data.expires){
-        captchas.delete(captcha_id);
+        await db.collection("captchas").deleteOne({ captcha_id });
         return null;
     }
     return data;
 }
 
-// delete captcha (after solved)
-export function deleteCaptcha(captcha_id){
-    captchas.delete(captcha_id);
-    MONITOR.push({ type:'verify', captcha_id, timestamp:Date.now() });
+// delete captcha (setelah solved)
+export async function deleteCaptcha(captcha_id){
+    const db = await connectDB();
+    await db.collection("captchas").deleteOne({ captcha_id });
 }
 
 // monitoring
-export function getMonitor(){ return MONITOR; }
+export async function getMonitor(){
+    const db = await connectDB();
+    return await db.collection("captchas").find().sort({created:-1}).limit(50).toArray();
+}
