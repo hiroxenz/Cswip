@@ -1,87 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Swipe CAPTCHA Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-#captcha-slider {width: 300px; height: 50px; background: #eee; position: relative; border-radius: 8px;}
-#knob {width:50px;height:50px;background:#333;position:absolute;left:0;top:0;cursor:pointer;border-radius:8px;transition:left 0.1s ease;}
-</style>
+  <title>CAPTCHA Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-6 font-sans">
+<body class="p-5">
 
-<h1 class="text-2xl font-bold mb-4">Swipe CAPTCHA Dashboard</h1>
+<h1 class="text-xl font-bold mb-4">CAPTCHA Monitoring</h1>
 
-<button id="create-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Create CAPTCHA</button>
+<div class="mb-6">
+  <canvas id="chart" class="w-full max-w-xl" style="height:300px;"></canvas>
+</div>
 
-<div id="captcha-container" class="mt-4"></div>
-
-<h2 class="text-xl font-semibold mt-6 mb-2">Monitoring (last 100 events)</h2>
-<canvas id="monitorChart" class="w-full h-64"></canvas>
-
-<table class="min-w-full mt-4 bg-white shadow rounded">
-<thead class="bg-gray-200">
-<tr>
-<th class="p-2 text-left">Type</th>
-<th class="p-2 text-left">Captcha ID</th>
-<th class="p-2 text-left">IP</th>
-<th class="p-2 text-left">Timestamp</th>
-</tr>
-</thead>
-<tbody id="table-body"></tbody>
+<h2 class="text-lg font-semibold mb-2">Latest CAPTCHAs</h2>
+<table class="table-auto border border-gray-300 w-full max-w-xl">
+  <thead>
+    <tr class="bg-gray-200">
+      <th class="px-2 py-1 border">ID</th>
+      <th class="px-2 py-1 border">Token</th>
+      <th class="px-2 py-1 border">Status</th>
+      <th class="px-2 py-1 border">IP</th>
+      <th class="px-2 py-1 border">Time</th>
+    </tr>
+  </thead>
+  <tbody id="captcha-table">
+    <!-- rows added dynamically -->
+  </tbody>
 </table>
 
 <script>
-// ===================== Monitoring =====================
-const ctx = document.getElementById('monitorChart').getContext('2d');
-const monitorChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Create', 'Verify'],
-        datasets: [{
-            label: 'Events',
-            data: [0,0],
-            backgroundColor: ['#3b82f6','#10b981']
-        }]
-    },
-    options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
-});
-
-async function loadDashboard(){
-    const res = await fetch("/api/dashboard");
-    const data = await res.json();
-    const tbody = document.getElementById("table-body");
-    tbody.innerHTML = "";
-    let createCount=0, verifyCount=0;
-    data.records.forEach(r=>{
-        const tr = document.createElement("tr");
-        tr.className="border-b";
-        tr.innerHTML = `<td class="p-2">${r.type}</td><td class="p-2">${r.captcha_id}</td><td class="p-2">${r.ip}</td><td class="p-2">${new Date(r.timestamp).toLocaleString()}</td>`;
-        tbody.appendChild(tr);
-        if(r.type==='create') createCount++;
-        if(r.type==='verify') verifyCount++;
-    });
-    monitorChart.data.datasets[0].data = [createCount, verifyCount];
-    monitorChart.update();
+async function fetchData(){
+  const res = await fetch("/api/dashboard");
+  const data = await res.json();
+  return data.monitor;
 }
-setInterval(loadDashboard,2000);
-loadDashboard();
 
-// ===================== Create CAPTCHA =====================
-document.getElementById("create-btn").onclick = async ()=>{
-    const res = await fetch("/api/captcha/create");
-    const data = await res.json();
-    if(!data.html){ alert("Failed: "+(data.msg||'')); return; }
-    const container = document.getElementById("captcha-container");
-    container.innerHTML = data.html;
+// update chart
+function updateChart(chart, monitor){
+  const counts = monitor.reduce((acc,item)=>{
+    acc[item.type] = (acc[item.type]||0)+1;
+    return acc;
+  }, {});
+  chart.data.labels = Object.keys(counts);
+  chart.data.datasets[0].data = Object.values(counts);
+  chart.update();
+}
 
-    // ==== Smooth swipe animation ====
-    const knob = container.querySelector(`#knob-${data.captcha_id}`);
-    knob.style.transition = "left 0.1s ease-out";
-};
+// update table
+function updateTable(monitor){
+  const tbody = document.getElementById("captcha-table");
+  tbody.innerHTML = "";
+
+  monitor.slice(-20).reverse().forEach(item=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-2 py-1 border">${item.captcha_id || '-'}</td>
+      <td class="px-2 py-1 border">${item.token || '-'}</td>
+      <td class="px-2 py-1 border">${item.type}</td>
+      <td class="px-2 py-1 border">${item.ip || '-'}</td>
+      <td class="px-2 py-1 border">${new Date(item.timestamp).toLocaleTimeString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+(async ()=>{
+  const ctx = document.getElementById('chart').getContext('2d');
+  const chart = new Chart(ctx,{
+    type:'bar',
+    data:{ labels:[], datasets:[{label:'Captcha Actions', data:[], backgroundColor:['#4ade80','#f87171']}] },
+    options:{ responsive:true, maintainAspectRatio:false }
+  });
+
+  // update every second
+  setInterval(async ()=>{
+    const monitor = await fetchData();
+    updateChart(chart, monitor);
+    updateTable(monitor);
+  },1000);
+})();
 </script>
 </body>
 </html>
-
