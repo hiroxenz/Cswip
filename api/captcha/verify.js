@@ -21,9 +21,9 @@ export default async function handler(req,res){
 
   if(data.token !== expectedToken) return res.status(400).json({ ok:false, msg:"Invalid token" });
 
-  // validate swipe
+  // validate swipe (finalPos 0-100)
   const finalPos = movement_trace[movement_trace.length-1];
-  const tolerance = 10;
+  const tolerance = 5; // ±5% tolerance
   if(Math.abs(finalPos - data.target_position) > tolerance)
       return res.json({ ok:false, msg:"Failed slider validation" });
 
