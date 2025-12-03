@@ -1,22 +1,32 @@
 import { getCaptcha, deleteCaptcha, checkRateLimit } from "../../utils/captchaStore.js";
+import crypto from "crypto";
+
+const SECRET = process.env.CAPTCHA_SECRET || "super-secret";
 
 export default async function handler(req,res){
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-    try{ await checkRateLimit(ip); }
-    catch(e){ return res.status(429).json({ ok:false, msg:e.message }); }
+  try{ await checkRateLimit(ip); }
+  catch(e){ return res.status(429).json({ ok:false, msg:e.message }); }
 
-    const { captcha_id, token, movement_trace } = req.body;
-    const data = await getCaptcha(captcha_id);
+  const { captcha_id, movement_trace } = req.body;
+  const data = await getCaptcha(captcha_id);
 
-    if(!data) return res.status(400).json({ ok:false, msg:"Invalid or expired" });
-    if(data.token!==token) return res.status(400).json({ ok:false, msg:"Invalid token" });
+  if(!data) return res.status(400).json({ ok:false, msg:"Invalid or expired" });
 
-    const finalPos = movement_trace[movement_trace.length-1];
-    const tolerance = 10;
-    if(Math.abs(finalPos - data.target_position) > tolerance)
-        return res.json({ ok:false, msg:"Failed slider validation" });
+  // verify token internal
+  const expectedToken = crypto.createHmac("sha256", SECRET)
+      .update(data.captcha_id + data.target_position + data.trace_salt + data.nonce)
+      .digest("hex");
 
-    await deleteCaptcha(captcha_id);
-    return res.json({ ok:true, msg:"Captcha solved successfully" });
+  if(data.token !== expectedToken) return res.status(400).json({ ok:false, msg:"Invalid token" });
+
+  // validate swipe
+  const finalPos = movement_trace[movement_trace.length-1];
+  const tolerance = 10;
+  if(Math.abs(finalPos - data.target_position) > tolerance)
+      return res.json({ ok:false, msg:"Failed slider validation" });
+
+  await deleteCaptcha(captcha_id);
+  return res.json({ ok:true, msg:"Captcha solved successfully" });
 }
