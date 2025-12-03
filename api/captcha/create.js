@@ -7,7 +7,7 @@ export default async function handler(req,res){
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     const captcha_id = crypto.randomBytes(6).toString("hex");
-    const target_position = Math.floor(Math.random()*100)+120;
+    const target_position = Math.floor(Math.random()*100); // 0-100%
     const trace_salt = crypto.randomBytes(8).toString("hex");
     const nonce = crypto.randomBytes(6).toString("hex");
 
