@@ -7,7 +7,6 @@ export default async function handler(req,res){
   const data = await getCaptcha(id);
   if(!data) return res.status(400).send("Invalid or expired");
 
-  // kirim HTML tanpa menyertakan token
   const html = `
 <!DOCTYPE html>
 <html>
@@ -33,13 +32,16 @@ export default async function handler(req,res){
   let dragging=false, startX=0, movement=[];
 
   function getX(e){ return e.touches? e.touches[0].clientX : e.clientX; }
+
   function startDrag(e){ dragging=true; startX=getX(e)-knob.offsetLeft; e.preventDefault(); }
   function onDrag(e){ 
     if(!dragging) return;
     let pos = getX(e)-startX;
     pos = Math.max(0, Math.min(pos, slider.clientWidth-knob.clientWidth));
     knob.style.left = pos + 'px';
-    movement.push(Math.round(pos));
+    // normalisasi ke 0-100
+    const posNorm = Math.round((pos/(slider.clientWidth-knob.clientWidth))*100);
+    movement.push(posNorm);
     e.preventDefault();
   }
   function endDrag(e){ dragging=false; }
@@ -53,7 +55,6 @@ export default async function handler(req,res){
   document.addEventListener('touchend', endDrag);
 
   btn.addEventListener('click', async ()=>{
-    // kirim hanya captcha_id + movement_trace
     const res = await fetch("/api/captcha/verify", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
