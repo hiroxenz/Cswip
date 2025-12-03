@@ -1,18 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CAPTCHA Dashboard</title>
+  <title>CAPTCHA Dashboard & Tester</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="p-5">
 
-<h1 class="text-xl font-bold mb-4">CAPTCHA Monitoring</h1>
+<h1 class="text-xl font-bold mb-4">CAPTCHA Monitoring & Tester</h1>
 
+<!-- CREATE CAPTCHA -->
+<div class="mb-6 p-4 border rounded bg-gray-50 max-w-xl">
+  <h2 class="text-lg font-semibold mb-2">Create CAPTCHA</h2>
+  <button id="create-captcha" class="px-4 py-2 bg-blue-500 text-white rounded">Create CAPTCHA</button>
+  <div id="new-captcha" class="mt-2"></div>
+</div>
+
+<!-- CHART -->
 <div class="mb-6">
   <canvas id="chart" class="w-full max-w-xl" style="height:300px;"></canvas>
 </div>
 
+<!-- LATEST CAPTCHA TABLE -->
 <h2 class="text-lg font-semibold mb-2">Latest CAPTCHAs</h2>
 <table class="table-auto border border-gray-300 w-full max-w-xl">
   <thead>
@@ -24,9 +33,7 @@
       <th class="px-2 py-1 border">Time</th>
     </tr>
   </thead>
-  <tbody id="captcha-table">
-    <!-- rows added dynamically -->
-  </tbody>
+  <tbody id="captcha-table"></tbody>
 </table>
 
 <script>
@@ -36,7 +43,6 @@ async function fetchData(){
   return data.monitor;
 }
 
-// update chart
 function updateChart(chart, monitor){
   const counts = monitor.reduce((acc,item)=>{
     acc[item.type] = (acc[item.type]||0)+1;
@@ -47,11 +53,9 @@ function updateChart(chart, monitor){
   chart.update();
 }
 
-// update table
 function updateTable(monitor){
   const tbody = document.getElementById("captcha-table");
   tbody.innerHTML = "";
-
   monitor.slice(-20).reverse().forEach(item=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -65,6 +69,24 @@ function updateTable(monitor){
   });
 }
 
+// CREATE CAPTCHA BUTTON
+document.getElementById("create-captcha").addEventListener("click", async ()=>{
+  const res = await fetch("/api/captcha/create", { method:"POST" });
+  const data = await res.json();
+  if(data.ok){
+    const div = document.getElementById("new-captcha");
+    div.innerHTML = `
+      <div class="p-2 border rounded bg-white mt-2">
+        <p><strong>ID:</strong> ${data.captcha_id}</p>
+        <p><strong>Token:</strong> ${data.token}</p>
+        <p><a href="/api/captcha/view?id=${data.captcha_id}&token=${data.token}" target="_blank" class="text-blue-600 underline">Test CAPTCHA</a></p>
+      </div>
+    `;
+  } else {
+    alert("Failed to create CAPTCHA");
+  }
+});
+
 (async ()=>{
   const ctx = document.getElementById('chart').getContext('2d');
   const chart = new Chart(ctx,{
@@ -73,7 +95,6 @@ function updateTable(monitor){
     options:{ responsive:true, maintainAspectRatio:false }
   });
 
-  // update every second
   setInterval(async ()=>{
     const monitor = await fetchData();
     updateChart(chart, monitor);
