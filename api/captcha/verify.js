@@ -14,19 +14,19 @@ export default async function handler(req,res){
 
   if(!data) return res.status(400).json({ ok:false, msg:"Invalid or expired" });
 
-  // verify token internal
+  // verify token internal dari data DB
   const expectedToken = crypto.createHmac("sha256", SECRET)
       .update(data.captcha_id + data.target_position + data.trace_salt + data.nonce)
       .digest("hex");
 
   if(data.token !== expectedToken) return res.status(400).json({ ok:false, msg:"Invalid token" });
 
-  // validate swipe (finalPos 0-100)
+  // finalPos sudah 0-100%
   const finalPos = movement_trace[movement_trace.length-1];
-  const tolerance = 5; // ±5% tolerance
+  const tolerance = 5; // ±5%
   if(Math.abs(finalPos - data.target_position) > tolerance)
       return res.json({ ok:false, msg:"Failed slider validation" });
 
-  await deleteCaptcha(captcha_id);
+  await deleteCaptcha(captcha_id); // sekali pakai
   return res.json({ ok:true, msg:"Captcha solved successfully" });
 }
