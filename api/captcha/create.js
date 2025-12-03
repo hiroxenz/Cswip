@@ -20,25 +20,64 @@ export default function handler(req,res){
     }
 
     const html = `
-<div style="width:300px;height:50px;background:#eee;position:relative;">
-  <div id="knob-${captcha_id}" style="width:50px;height:50px;background:#333;position:absolute;left:0;top:0;cursor:pointer;"></div>
+<div id="captcha-slider" style="width:100%;max-width:320px;height:50px;background:#eee;position:relative;border-radius:8px;">
+  <div id="knob-${captcha_id}" style="width:50px;height:50px;background:#333;position:absolute;left:0;top:0;cursor:pointer;border-radius:8px;transition:left 0.05s linear;"></div>
 </div>
-<button id="btn-${captcha_id}">Verify</button>
+<button id="btn-${captcha_id}" class="mt-2 px-3 py-1 bg-green-500 text-white rounded">Verify</button>
+
 <script>
 (function(){
-let movement=[],dragging=false,offsetX=0;
-const knob=document.getElementById("knob-${captcha_id}");
-const btn=document.getElementById("btn-${captcha_id}");
-knob.onmousedown=e=>{dragging=true;offsetX=e.clientX-knob.offsetLeft;};
-document.onmousemove=e=>{if(!dragging)return;let pos=e.clientX-offsetX;pos=Math.max(0,Math.min(pos,250));knob.style.left=pos+'px';movement.push(pos);};
-document.onmouseup=()=>dragging=false;
-btn.onclick=async()=>{
-  const res=await fetch("/api/captcha/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({captcha_id:"${captcha_id}",movement_trace:movement,token:"${token}"})});
-  const data=await res.json();
-  alert(JSON.stringify(data));
-};
+  const slider = document.getElementById("captcha-slider");
+  const knob = document.getElementById("knob-${captcha_id}");
+  const btn = document.getElementById("btn-${captcha_id}");
+  let movement = [], dragging = false, offsetX = 0;
+
+  const maxPos = slider.clientWidth - knob.clientWidth;
+
+  // ==== Mouse / Touch Events ====
+  const startDrag = e => {
+    dragging = true;
+    offsetX = (e.type==='touchstart'? e.touches[0].clientX : e.clientX) - knob.offsetLeft;
+    e.preventDefault();
+  };
+
+  const drag = e => {
+    if(!dragging) return;
+    const clientX = (e.type==='touchmove'? e.touches[0].clientX : e.clientX);
+    let pos = clientX - offsetX;
+    pos = Math.max(0, Math.min(pos, maxPos));
+    
+    // Smooth interpolation
+    const prev = parseFloat(knob.style.left) || 0;
+    knob.style.left = (prev + (pos - prev)*0.3) + "px";
+
+    movement.push(Math.round(pos));
+    e.preventDefault();
+  };
+
+  const endDrag = e => { dragging = false; e.preventDefault(); };
+
+  knob.addEventListener("mousedown", startDrag);
+  knob.addEventListener("touchstart", startDrag);
+
+  document.addEventListener("mousemove", drag);
+  document.addEventListener("touchmove", drag);
+
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchend", endDrag);
+
+  btn.onclick = async () => {
+    const res = await fetch("/api/captcha/verify", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({captcha_id:"${captcha_id}",movement_trace:movement,token:"${token}"})
+    });
+    const data = await res.json();
+    alert(JSON.stringify(data));
+  };
 })();
 </script>
-    `;
+`;
+
     res.json({ captcha_id, token, html });
 }
