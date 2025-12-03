@@ -1,11 +1,11 @@
 import { getCaptcha } from "../../utils/captchaStore.js";
 
 export default function handler(req,res){
-    const { id, token } = req.query;
-    if(!id || !token) return res.status(400).send("Missing parameters");
+    const { id } = req.query;
+    if(!id) return res.status(400).send("Missing parameters");
 
     const data = getCaptcha(id);
-    if(!data || data.token!==token) return res.status(400).send("Invalid or expired");
+    if(!data) return res.status(400).send("Invalid or expired");
 
     const html = `
 <!DOCTYPE html>
@@ -32,7 +32,6 @@ export default function handler(req,res){
   let dragging=false, startX=0, movement=[];
 
   function getX(e){ return e.touches? e.touches[0].clientX : e.clientX; }
-
   function startDrag(e){ dragging=true; startX=getX(e)-knob.offsetLeft; e.preventDefault(); }
   function onDrag(e){ 
     if(!dragging) return;
@@ -53,13 +52,14 @@ export default function handler(req,res){
   document.addEventListener('touchend', endDrag);
 
   btn.addEventListener('click', async ()=>{
+    const token = "${data.token}"; // ambil token dari store
     const res = await fetch("/api/captcha/verify", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ captcha_id:"${id}", token:"${token}", movement_trace:movement })
+      body: JSON.stringify({ captcha_id:"${id}", token, movement_trace:movement })
     });
-    const data = await res.json();
-    alert(JSON.stringify(data));
+    const result = await res.json();
+    alert(JSON.stringify(result));
   });
 
 })();
