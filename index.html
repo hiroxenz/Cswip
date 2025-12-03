@@ -32,10 +32,9 @@
   <thead>
     <tr class="bg-gray-200">
       <th class="px-2 py-1 border">ID</th>
-      <th class="px-2 py-1 border">Token</th>
-      <th class="px-2 py-1 border">Status</th>
       <th class="px-2 py-1 border">IP</th>
-      <th class="px-2 py-1 border">Time</th>
+      <th class="px-2 py-1 border">Status</th>
+      <th class="px-2 py-1 border">Created</th>
     </tr>
   </thead>
   <tbody id="captcha-table"></tbody>
@@ -45,14 +44,16 @@
 async function fetchData(){
   const res = await fetch("/api/dashboard");
   const data = await res.json();
-  return data.monitor;
+  return data.monitor; // array of latest CAPTCHAs
 }
 
 function updateChart(chart, monitor){
-  const counts = monitor.reduce((acc,item)=>{
-    acc[item.type] = (acc[item.type]||0)+1;
-    return acc;
-  }, {});
+  // contoh: hitung jumlah solved vs pending
+  const counts = { solved:0, pending:0 };
+  monitor.forEach(item => {
+    if(item.solved) counts.solved++;
+    else counts.pending++;
+  });
   chart.data.labels = Object.keys(counts);
   chart.data.datasets[0].data = Object.values(counts);
   chart.update();
@@ -64,11 +65,10 @@ function updateTable(monitor){
   monitor.slice(-20).reverse().forEach(item=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="px-2 py-1 border">${item.captcha_id || '-'}</td>
-      <td class="px-2 py-1 border">${item.token || '-'}</td>
-      <td class="px-2 py-1 border">${item.type}</td>
+      <td class="px-2 py-1 border">${item.captcha_id}</td>
       <td class="px-2 py-1 border">${item.ip || '-'}</td>
-      <td class="px-2 py-1 border">${new Date(item.timestamp).toLocaleTimeString()}</td>
+      <td class="px-2 py-1 border">${item.solved ? 'Solved' : 'Pending'}</td>
+      <td class="px-2 py-1 border">${new Date(item.created).toLocaleString()}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -83,8 +83,7 @@ document.getElementById("create-captcha").addEventListener("click", async ()=>{
     div.innerHTML = `
       <div class="p-2 border rounded bg-white mt-2">
         <p><strong>ID:</strong> ${data.captcha_id}</p>
-        <p><strong>Token:</strong> ${data.token}</p>
-        <p><a href="/api/captcha/view?id=${data.captcha_id}&token=${data.token}" target="_blank" class="text-blue-600 underline">Test CAPTCHA</a></p>
+        <p><a href="/api/captcha/view?id=${data.captcha_id}" target="_blank" class="text-blue-600 underline">Test CAPTCHA</a></p>
       </div>
     `;
   } else {
@@ -103,9 +102,17 @@ document.getElementById("refresh-data").addEventListener("click", async ()=>{
 const ctx = document.getElementById('chart').getContext('2d');
 const chart = new Chart(ctx,{
   type:'bar',
-  data:{ labels:[], datasets:[{label:'Captcha Actions', data:[], backgroundColor:['#4ade80','#f87171']}] },
+  data:{ labels:[], datasets:[{label:'CAPTCHA Status', data:[], backgroundColor:['#4ade80','#f87171']}] },
   options:{ responsive:true, maintainAspectRatio:false }
 });
+
+// load initial data
+(async ()=>{
+  const monitor = await fetchData();
+  updateChart(chart, monitor);
+  updateTable(monitor);
+})();
 </script>
+
 </body>
 </html>
