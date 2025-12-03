@@ -1,0 +1,12 @@
+{
+  "name": "swipe-captcha-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "express-rate-limit": "^6.10.0",
+    "crypto": "^1.0.1"
+  }
+}
