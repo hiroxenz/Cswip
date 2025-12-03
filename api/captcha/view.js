@@ -39,7 +39,7 @@ export default async function handler(req,res){
     let pos = getX(e)-startX;
     pos = Math.max(0, Math.min(pos, slider.clientWidth-knob.clientWidth));
     knob.style.left = pos + 'px';
-    // normalisasi ke 0-100
+    // normalisasi ke 0-100%
     const posNorm = Math.round((pos/(slider.clientWidth-knob.clientWidth))*100);
     movement.push(posNorm);
     e.preventDefault();
