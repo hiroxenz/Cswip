@@ -3,7 +3,7 @@ import { createCaptcha } from "../../utils/captchaStore.js";
 
 const SECRET = process.env.CAPTCHA_SECRET || "super-secret";
 
-export default function handler(req,res){
+export default async function handler(req,res){
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     const captcha_id = crypto.randomBytes(6).toString("hex");
@@ -15,7 +15,7 @@ export default function handler(req,res){
         .update(captcha_id + target_position + trace_salt + nonce)
         .digest("hex");
 
-    createCaptcha(ip,captcha_id,token,target_position,trace_salt,nonce);
+    await createCaptcha(ip,captcha_id,token,target_position,trace_salt,nonce);
 
     res.json({ ok:true, captcha_id, token });
 }
