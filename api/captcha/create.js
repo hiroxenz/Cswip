@@ -19,8 +19,8 @@ export default function handler(req,res){
         return res.status(429).json({ ok:false, msg:e.message });
     }
 
-    const html = `
-<div id="captcha-slider" style="width:100%;max-width:320px;height:50px;background:#eee;position:relative;border-radius:8px;">
+const html = `
+<div id="captcha-slider" style="width:100%;max-width:320px;height:50px;background:#eee;position:relative;border-radius:8px;touch-action:none;">
   <div id="knob-${captcha_id}" style="width:50px;height:50px;background:#333;position:absolute;left:0;top:0;cursor:pointer;border-radius:8px;transition:left 0.05s linear;"></div>
 </div>
 <button id="btn-${captcha_id}" class="mt-2 px-3 py-1 bg-green-500 text-white rounded">Verify</button>
@@ -32,38 +32,44 @@ export default function handler(req,res){
   const btn = document.getElementById("btn-${captcha_id}");
   let movement = [], dragging = false, offsetX = 0;
 
-  const maxPos = slider.clientWidth - knob.clientWidth;
+  function getClientX(e){
+    if(e.type.startsWith('touch')) return e.touches[0].clientX;
+    return e.clientX;
+  }
 
-  // ==== Mouse / Touch Events ====
-  const startDrag = e => {
+  function startDrag(e){
     dragging = true;
-    offsetX = (e.type==='touchstart'? e.touches[0].clientX : e.clientX) - knob.offsetLeft;
+    offsetX = getClientX(e) - knob.offsetLeft;
     e.preventDefault();
-  };
+  }
 
-  const drag = e => {
+  function drag(e){
     if(!dragging) return;
-    const clientX = (e.type==='touchmove'? e.touches[0].clientX : e.clientX);
+    const clientX = getClientX(e);
     let pos = clientX - offsetX;
+    const maxPos = slider.clientWidth - knob.clientWidth;
     pos = Math.max(0, Math.min(pos, maxPos));
-    
-    // Smooth interpolation
+
     const prev = parseFloat(knob.style.left) || 0;
     knob.style.left = (prev + (pos - prev)*0.3) + "px";
 
     movement.push(Math.round(pos));
     e.preventDefault();
-  };
+  }
 
-  const endDrag = e => { dragging = false; e.preventDefault(); };
+  function endDrag(e){
+    dragging = false;
+    e.preventDefault();
+  }
 
+  // Mouse events
   knob.addEventListener("mousedown", startDrag);
-  knob.addEventListener("touchstart", startDrag);
-
   document.addEventListener("mousemove", drag);
-  document.addEventListener("touchmove", drag);
-
   document.addEventListener("mouseup", endDrag);
+
+  // Touch events
+  knob.addEventListener("touchstart", startDrag, {passive:false});
+  document.addEventListener("touchmove", drag, {passive:false});
   document.addEventListener("touchend", endDrag);
 
   btn.onclick = async () => {
@@ -78,6 +84,7 @@ export default function handler(req,res){
 })();
 </script>
 `;
+
 
     res.json({ captcha_id, token, html });
 }
