@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/**/*.js", "use": "@vercel/node" }
+  "builds":[{"src":"api/**/*.js","use":"@vercel/node"}],
+  "routes":[
+    {"src":"/api/(.*)","dest":"/api/$1.js"},
+    {"src":"/","dest":"/public/index.html"}
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.js" },
-    { "src": "/", "dest": "/public/index.html" }
-  ],
-  "env": {
-    "CAPTCHA_SECRET": "isi-secret-mu-di-vercel"
-  }
+  "env":{"CAPTCHA_SECRET":"isi-secret-mu-di-vercel"}
 }
-
