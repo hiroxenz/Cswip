@@ -1,13 +1,14 @@
 import { getCaptcha } from "../../utils/captchaStore.js";
 
-export default function handler(req,res){
-    const { id } = req.query;
-    if(!id) return res.status(400).send("Missing parameters");
+export default async function handler(req,res){
+  const { id } = req.query;
+  if(!id) return res.status(400).send("Missing captcha_id");
 
-    const data = getCaptcha(id);
-    if(!data) return res.status(400).send("Invalid or expired");
+  const data = await getCaptcha(id);
+  if(!data) return res.status(400).send("Invalid or expired");
 
-    const html = `
+  // kirim HTML tanpa menyertakan token
+  const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -52,11 +53,11 @@ export default function handler(req,res){
   document.addEventListener('touchend', endDrag);
 
   btn.addEventListener('click', async ()=>{
-    const token = "${data.token}"; // ambil token dari store
+    // kirim hanya captcha_id + movement_trace
     const res = await fetch("/api/captcha/verify", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ captcha_id:"${id}", token, movement_trace:movement })
+      body: JSON.stringify({ captcha_id:"${id}", movement_trace:movement })
     });
     const result = await res.json();
     alert(JSON.stringify(result));
@@ -69,6 +70,6 @@ export default function handler(req,res){
 </html>
 `;
 
-    res.setHeader("Content-Type","text/html");
-    res.send(html);
+  res.setHeader("Content-Type","text/html");
+  res.send(html);
 }
