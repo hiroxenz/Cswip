@@ -16,6 +16,11 @@
   <div id="new-captcha" class="mt-2"></div>
 </div>
 
+<!-- REFRESH BUTTON -->
+<div class="mb-4">
+  <button id="refresh-data" class="px-4 py-2 bg-green-500 text-white rounded">Refresh Data</button>
+</div>
+
 <!-- CHART -->
 <div class="mb-6">
   <canvas id="chart" class="w-full max-w-xl" style="height:300px;"></canvas>
@@ -87,20 +92,20 @@ document.getElementById("create-captcha").addEventListener("click", async ()=>{
   }
 });
 
-(async ()=>{
-  const ctx = document.getElementById('chart').getContext('2d');
-  const chart = new Chart(ctx,{
-    type:'bar',
-    data:{ labels:[], datasets:[{label:'Captcha Actions', data:[], backgroundColor:['#4ade80','#f87171']}] },
-    options:{ responsive:true, maintainAspectRatio:false }
-  });
+// REFRESH DATA BUTTON
+document.getElementById("refresh-data").addEventListener("click", async ()=>{
+  const monitor = await fetchData();
+  updateChart(chart, monitor);
+  updateTable(monitor);
+});
 
-  setInterval(async ()=>{
-    const monitor = await fetchData();
-    updateChart(chart, monitor);
-    updateTable(monitor);
-  },1000);
-})();
+// INITIAL CHART SETUP
+const ctx = document.getElementById('chart').getContext('2d');
+const chart = new Chart(ctx,{
+  type:'bar',
+  data:{ labels:[], datasets:[{label:'Captcha Actions', data:[], backgroundColor:['#4ade80','#f87171']}] },
+  options:{ responsive:true, maintainAspectRatio:false }
+});
 </script>
 </body>
 </html>
